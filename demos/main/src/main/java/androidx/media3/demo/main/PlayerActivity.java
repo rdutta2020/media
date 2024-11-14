@@ -15,8 +15,12 @@
  */
 package androidx.media3.demo.main;
 
+import android.content.ContentResolver;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Pair;
@@ -34,6 +38,7 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.ErrorMessageProvider;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.TrackSelectionParameters;
@@ -56,6 +61,7 @@ import androidx.media3.exoplayer.source.ads.AdsLoader;
 import androidx.media3.exoplayer.util.DebugTextViewHelper;
 import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.ui.PlayerView;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -345,7 +351,7 @@ public class PlayerActivity extends AppCompatActivity
     }
 
     List<MediaItem> mediaItems =
-        createMediaItems(intent, DemoUtil.getDownloadTracker(/* context= */ this));
+        createMediaItems(intent, DemoUtil.getDownloadTracker(/* context= */ this), this);
     for (int i = 0; i < mediaItems.size(); i++) {
       MediaItem mediaItem = mediaItems.get(i);
 
@@ -537,21 +543,30 @@ public class PlayerActivity extends AppCompatActivity
     }
   }
 
-  private static List<MediaItem> createMediaItems(Intent intent, DownloadTracker downloadTracker) {
+  private static List<MediaItem> createMediaItems(Intent intent, DownloadTracker downloadTracker, Context context) {
     List<MediaItem> mediaItems = new ArrayList<>();
     for (MediaItem item : IntentUtil.createMediaItemsFromIntent(intent)) {
       mediaItems.add(
           maybeSetDownloadProperties(
-              item, downloadTracker.getDownloadRequest(item.localConfiguration.uri)));
+              item, downloadTracker.getDownloadRequest(item.localConfiguration.uri), context));
     }
     return mediaItems;
   }
 
   @OptIn(markerClass = UnstableApi.class) // Using Download API
   private static MediaItem maybeSetDownloadProperties(
-      MediaItem item, @Nullable DownloadRequest downloadRequest) {
+      MediaItem item, @Nullable DownloadRequest downloadRequest, Context context) {
     if (downloadRequest == null) {
-      return item;
+      MediaItem.Builder builder = item.buildUpon();
+      Uri uri =
+          Uri.fromFile(new File("//android_asset/subtitles_bengali.vtt"));
+
+      MediaItem.SubtitleConfiguration subtitle = new MediaItem.SubtitleConfiguration.Builder(uri)
+          .setMimeType(MimeTypes.TEXT_VTT) // Change this to the correct MIME type for your subtitle format
+          .setLanguage("bn")
+          .build();
+      builder.setSubtitleConfigurations(Collections.singletonList(subtitle));
+      return builder.build();
     }
     MediaItem.Builder builder = item.buildUpon();
     builder
@@ -566,6 +581,15 @@ public class PlayerActivity extends AppCompatActivity
       builder.setDrmConfiguration(
           drmConfiguration.buildUpon().setKeySetId(downloadRequest.keySetId).build());
     }
+
+    Uri uri =
+        Uri.fromFile(new File("//android_asset/subtitles_bengali.vtt"));
+
+    MediaItem.SubtitleConfiguration subtitle = new MediaItem.SubtitleConfiguration.Builder(uri)
+        .setMimeType(MimeTypes.APPLICATION_SUBRIP) // Change this to the correct MIME type for your subtitle format
+        .setLanguage("bn")
+        .build();
+    builder.setSubtitleConfigurations(Collections.singletonList(subtitle));
     return builder.build();
   }
 }
